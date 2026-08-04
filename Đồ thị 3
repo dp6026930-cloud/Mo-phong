@@ -1,0 +1,70 @@
+import matplotlib.pyplot as plt
+# khai báo thông số
+m = 2.0 #khối lượng vật
+g = 9.81 #gia tôc trong trường
+u = 0.6 #hệ số ma sát trượt 
+k = 0.5 # hệ số lực cản không khí
+x0 = 0.0
+v0 = 0.0
+t_max = 100
+dt = 0.0001
+#lực tác dụng
+def F(t):
+    if 0 <= t < 20:
+        return 100
+    elif 20 <= t < 70:
+        return 0
+    elif t >= 70:
+        return t
+#giải phương trình vi phân
+t_list = [0.0]
+v_list = [v0]
+x_list = [x0]
+a_list = []
+N = int(t_max/dt)
+for i in range(N):
+    t_n = t_list[-1]
+    x_n = x_list[-1]
+    v_n = v_list[-1]
+    F_c = -k*abs(v_n)*v_n 
+    F_push = F(t_n)
+    #Tính lực ma sát (cản trở chuyển động)
+    if v_n > 0.0001:
+        F_ms = -u*m*g
+    elif v_n<-0.0001:
+        F_ms = u*m*g
+    else:
+        if abs(F_push + F_c)<=u*m*g:
+            F_ms = -(F_push + F_c)
+        else:F_ms = -u*m*g if (F_push + F_c)>0 else u*m*g
+    #tổng lực và gia tốc
+    F_total = F_push + F_c + F_ms
+    a_n = F_total/m
+    a_list.append(a_n)
+    v_next = v_n + a_n*dt
+    x_next = x_n + v_n*dt
+    t_next = t_n + dt
+    t_list.append(t_next)
+    v_list.append(v_next)
+    x_list.append(x_next)
+
+a_list.append(a_list[-1])
+
+#vẽ đồ thị
+fig, (ax1,ax2,ax3) = plt.subplots(3,1,figsize =(9,9),sharex = True)
+
+ax1.plot(t_list, x_list,color = 'blue', linewidth = 1.5, label = 'Đồ thị x')
+ax1.grid(True)
+ax1.legend(loc='upper left')
+
+ax2.plot(t_list, v_list, color = 'red', linewidth = 1.5, label = 'Đồ thị v')
+ax2.grid(True)
+ax2.legend(loc='upper left')
+
+ax3.plot(t_list, a_list, color = 'green', linewidth = 1.5 ,label = 'Đồ thị a')
+ax3.grid(True)
+ax3.legend(loc='upper left')
+
+plt.tight_layout()
+
+plt.show()
