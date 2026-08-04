@@ -47,14 +47,18 @@ for i in range (N):
 fig, (ax1,ax2,ax3) = plt.subplots(3,1,figsize =(9,9),sharex = True)
 
 ax1.plot(t_list, x_list,color = 'blue', linewidth = 1.5, label = 'Đồ thị x')
+ax1.set_ylabel('x (m)')
 ax1.grid(True)
 ax1.legend(loc='upper left')
 
 ax2.plot(t_list, v_list, color = 'red', linewidth = 1.5, label = 'Đồ thị v')
+ax2.set_ylabel('v (m/s)')
 ax2.grid(True)
 ax2.legend(loc='upper left')
 
 ax3.plot(t_list, a_list, color = 'green', linewidth = 1.5 ,label = 'Đồ thị a')
+ax3.set_ylabel('a (m/s²)')
+ax3.set_xlabel('Thời gian t (s)')
 ax3.grid(True)
 ax3.legend(loc='upper left')
 
