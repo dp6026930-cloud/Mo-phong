@@ -11,7 +11,7 @@ t_max = 100.0
 dt = 0.0001
 #lực tác dụng
 def F(t):
-    return 100
+   return 100
 #giải phương trình vi phân
 N = int(t_max/dt)
 
@@ -19,6 +19,8 @@ t_list = np.linspace(0, t_max, N + 1)
 x_list = np.zeros(N + 1)
 v_list = np.zeros(N + 1)
 a_list = np.zeros(N + 1)
+x_list[0] = x0
+v_list[0] = v0
 for i in range (N):
     t_n = t_list[i]
     x_n = x_list[i]
@@ -45,6 +47,7 @@ for i in range (N):
 
 
 a_list[-1] = a_list[-2]
+
 #vẽ đồ thị
 fig, (ax1,ax2,ax3) = plt.subplots(3,1,figsize =(9,9),sharex = True)
 
