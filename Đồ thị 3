@@ -24,6 +24,8 @@ t_list = np.linspace(0, t_max, N + 1)
 x_list = np.zeros(N + 1)
 v_list = np.zeros(N + 1)
 a_list = np.zeros(N + 1)
+x_list[0] = x0
+v_list[0] = v0
 for i in range (N):
     t_n = t_list[i]
     x_n = x_list[i]
@@ -47,7 +49,10 @@ for i in range (N):
     x_next = x_n + v_n * dt
     v_list[i + 1] = v_next
     x_list[i + 1] = x_next
-    a_list[-1] = a_list[-2]
+
+
+a_list[-1] = a_list[-2]
+
 #vẽ đồ thị
 fig, (ax1,ax2,ax3) = plt.subplots(3,1,figsize =(9,9),sharex = True)
 
@@ -70,3 +75,4 @@ ax3.legend(loc='upper left')
 plt.tight_layout()
 
 plt.show()
+
