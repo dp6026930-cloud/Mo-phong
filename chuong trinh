@@ -10,18 +10,7 @@ x0 = 0.0
 v0 = 0.0
 t_max = 100.0
 dt = 0.0001
-
-# ================== NHẬP LỰC TÁC DỤNG TỪ BÀN PHÍM ==================
-# Có 2 kiểu nhập:
-#  1) Biểu thức đơn giản (1 dòng), ví dụ: 100 | 50*sin(t) | 20*exp(-0.1*t)
-#  2) Hàm nhiều nhánh (không liên tục), nhập nhiều dòng, VD:
-#       if 0 <= t < 20:
-#           return 100
-#       elif 20 <= t < 70:
-#           return 0
-#       else:
-#           return 0
-#     (kết thúc bằng cách nhập một dòng TRỐNG)
+#nhập hàm
 print("Nhập định nghĩa lực F(t) theo biến t.")
 print("- Nếu chỉ là 1 biểu thức đơn giản, gõ 1 dòng rồi Enter (VD: 50*sin(t)).")
 print("- Nếu là hàm nhiều nhánh (if/elif/else, dùng 'return'), gõ nhiều dòng,")
@@ -74,7 +63,7 @@ try:
     print(f"Kiểm tra: F(0) = {F(0.0)}")
 except Exception as e:
     raise SystemExit(f"Không thể tính F(t) với hàm đã nhập: {e}")
-# =====================================================================
+
 
 # giải phương trình vi phân
 N = int(t_max / dt)
@@ -92,7 +81,7 @@ for i in range(N):
     x_n = x_list[i]
     v_n = v_list[i]
 
-    F_c = -k * abs(v_n) * v_n
+    F_c = -k * v_n*abs(v_n)
     F_push = F(t_n)
 
     # Tính lực ma sát (cản trở chuyển động)
