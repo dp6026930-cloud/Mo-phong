@@ -1,0 +1,131 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1. Khởi tạo biến và hằng số
+m = 1500          # Khối lượng (kg)
+u = 0.015         # Hệ số ma sát
+k = 0.404         # Hệ số cản không khí
+g = 9.81          # Gia tốc trọng trường (m/s^2)
+epsilon = 0.0001  # Ngưỡng vận tốc khi dừng
+
+dt = 0.001        # Bước thời gian (slide dùng 0.0001, dùng 0.001 để vẽ đồ thị nhanh hơn)
+t_max = 45        # Tổng thời gian mô phỏng (s)
+t = np.arange(0, t_max, dt)
+N_steps = len(t)
+
+# Khởi tạo mảng cho vị trí, vận tốc, gia tốc và lực kéo
+x = np.zeros(N_steps)
+v = np.zeros(N_steps)
+a = np.zeros(N_steps)
+F_pull = np.zeros(N_steps)
+alpha = np.zeros(N_steps) # Góc nghiêng (radian)
+
+# 2. Xác định Lực kéo (F) đầu vào và Góc dốc cho từng giai đoạn
+# Vận tốc lý tưởng để tính chính xác lực cần thiết dựa trên phương trình Newton trong slide
+v_ideal = np.zeros(N_steps)
+for i in range(N_steps):
+    time = t[i]
+    if time <= 10:
+        # Giai đoạn 1: Đường bằng, tăng tốc
+        a_ideal = 25 / 9 # 100km/h trong 10s
+        v_ideal[i] = a_ideal * time
+        alpha[i] = 0
+        # F - F_kk - F_ms = m*a => F = u*m*g + k*v^2 + m*a
+        F_pull[i] = u * m * g + k * (v_ideal[i]**2) + m * a_ideal
+        
+    elif time <= 30:
+        # Giai đoạn 2: Giữ nguyên vận tốc
+        v_max = 250 / 9 # Vận tốc tối đa
+        v_ideal[i] = v_max
+        if time <= 15:
+            # Xuống dốc 15 độ
+            alpha[i] = np.radians(-15)
+            # F = k*v^2 + u*P*cos(15) - P*sin(15)
+            F_pull[i] = k * (v_max**2) + u * m * g * np.cos(abs(alpha[i])) - m * g * np.sin(abs(alpha[i]))
+        elif time <= 25:
+            # Đường bằng
+            alpha[i] = 0
+            # F = u*m*g + k*v^2
+            F_pull[i] = u * m * g + k * (v_max**2)
+        else:
+            # Lên dốc 10 độ
+            alpha[i] = np.radians(10)
+            # F = k*v^2 + u*P*cos(10) + P*sin(10)
+            F_pull[i] = k * (v_max**2) + u * m * g * np.cos(alpha[i]) + m * g * np.sin(alpha[i])
+            
+    else:
+        # Giai đoạn 3: Giảm tốc về 0
+        a_ideal = -50 / 27 # -100km/h trong 15s
+        t_giam = time - 30
+        v_ideal[i] = (250 / 9) + a_ideal * t_giam
+        alpha[i] = 0
+        if v_ideal[i] < 0: 
+            v_ideal[i] = 0
+            a_ideal = 0
+        # F = u*m*g + k*v^2 + m*a
+        F_pull[i] = u * m * g + k * (v_ideal[i]**2) + m * a_ideal
+
+# 3. Giải hệ phương trình bằng phương pháp Euler
+for i in range(N_steps - 1):
+    # Tính toán các lực dựa trên trạng thái hiện tại
+    Normal_force = m * g * np.cos(alpha[i])
+    F_gravity_x = -m * g * np.sin(alpha[i]) # Dương nếu trọng lực kéo giật lùi (lên dốc)
+    
+    # Lực cản không khí luôn ngược chiều chuyển động
+    F_c = -k * (v[i]**2) * np.sign(v[i]) if v[i] != 0 else 0
+    
+    # Ngoại lực (Lực kéo + Trọng lượng theo phương x + Cản không khí)
+    F_ngoai_can = F_pull[i] + F_gravity_x + F_c
+    
+    # Xử lý vật lý cho lực ma sát khi v ≈ 0
+    if v[i] > epsilon:
+        F_ms = -u * Normal_force
+    elif v[i] < -epsilon:
+        F_ms = u * Normal_force
+    else:
+        # Vật đứng yên (-epsilon <= v <= epsilon)
+        if abs(F_ngoai_can) <= u * Normal_force:
+            F_ms = -F_ngoai_can # Lực ma sát nghỉ triệt tiêu ngoại lực
+        else:
+            F_ms = -u * Normal_force * np.sign(F_ngoai_can) # Vật bắt đầu trượt
+            
+    # Tính Gia tốc
+    F_total = F_ngoai_can + F_ms
+    a[i] = F_total / m
+    
+    # Cập nhật Vận tốc và Vị trí (Bước Euler)
+    v[i+1] = v[i] + a[i] * dt
+    x[i+1] = x[i] + v[i] * dt
+
+# Tính gia tốc cho bước cuối cùng để hoàn thiện mảng
+a[-1] = a[-2]
+
+# 4. Vẽ đồ thị kết quả
+fig, axs = plt.subplots(4, 1, figsize=(10, 14))
+fig.suptitle('Mô phỏng Động học Xe bằng Phương pháp Euler', fontsize=16, fontweight='bold')
+
+# Đồ thị Vị trí (x)
+axs[0].plot(t, x, 'b-', linewidth=2)
+axs[0].set_ylabel('Vị trí, x (m)')
+
+# Đồ thị Vận tốc (v)
+axs[1].plot(t, v, 'g-', linewidth=2)
+axs[1].set_ylabel('Vận tốc, v (m/s)')
+
+# Đồ thị Gia tốc (a)
+axs[2].plot(t, a, 'r-', linewidth=2)
+axs[2].set_ylabel('Gia tốc, a (m/s²)')
+
+# Đồ thị Lực kéo (F)
+axs[3].plot(t, F_pull, 'purple', linewidth=2)
+axs[3].set_ylabel('Lực kéo, F (N)')
+axs[3].set_xlabel('Thời gian, t (s)')
+axs[3].axhline(y=0, color='black', linestyle='-', linewidth=1)
+
+for ax in axs:
+    ax.grid(True, linestyle='--', alpha=0.7)
+    for vline in [10, 15, 25, 30]:
+        ax.axvline(x=vline, color='gray', linestyle=':', alpha=0.5)
+
+plt.tight_layout()
+plt.show()
