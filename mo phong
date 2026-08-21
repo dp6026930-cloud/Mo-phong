@@ -42,7 +42,7 @@ for i in range(N_steps):
            
             F_pull[i] = k * (v_max**2) + u * m * g * np.cos(abs(alpha[i])) - m * g * np.sin(abs(alpha[i]))
         elif time <= 25:
-            # Đường bằng
+           
             alpha[i] = 0
            
             F_pull[i] = u * m * g + k * (v_max**2)
