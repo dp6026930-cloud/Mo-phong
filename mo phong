@@ -8,7 +8,7 @@ k = 0.404         # Hệ số cản không khí
 g = 9.81          # Gia tốc trọng trường (m/s^2)
 epsilon = 0.0001  # Ngưỡng vận tốc khi dừng
 
-dt = 0.001        # Bước thời gian (slide dùng 0.0001, dùng 0.001 để vẽ đồ thị nhanh hơn)
+dt = 0.001        # Bước thời gian 
 t_max = 45        # Tổng thời gian mô phỏng (s)
 t = np.arange(0, t_max, dt)
 N_steps = len(t)
@@ -20,17 +20,16 @@ a = np.zeros(N_steps)
 F_pull = np.zeros(N_steps)
 alpha = np.zeros(N_steps) # Góc nghiêng (radian)
 
-# 2. Xác định Lực kéo (F) đầu vào và Góc dốc cho từng giai đoạn
-# Vận tốc lý tưởng để tính chính xác lực cần thiết dựa trên phương trình Newton trong slide
+# 2. Xác định Lực kéo (F) đầu vào 
 v_ideal = np.zeros(N_steps)
 for i in range(N_steps):
     time = t[i]
     if time <= 10:
         # Giai đoạn 1: Đường bằng, tăng tốc
-        a_ideal = 25 / 9 # 100km/h trong 10s
+        a_ideal = 25 / 9 
         v_ideal[i] = a_ideal * time
         alpha[i] = 0
-        # F - F_kk - F_ms = m*a => F = u*m*g + k*v^2 + m*a
+        
         F_pull[i] = u * m * g + k * (v_ideal[i]**2) + m * a_ideal
         
     elif time <= 30:
@@ -38,31 +37,31 @@ for i in range(N_steps):
         v_max = 250 / 9 # Vận tốc tối đa
         v_ideal[i] = v_max
         if time <= 15:
-            # Xuống dốc 15 độ
+           
             alpha[i] = np.radians(-15)
-            # F = k*v^2 + u*P*cos(15) - P*sin(15)
+           
             F_pull[i] = k * (v_max**2) + u * m * g * np.cos(abs(alpha[i])) - m * g * np.sin(abs(alpha[i]))
         elif time <= 25:
             # Đường bằng
             alpha[i] = 0
-            # F = u*m*g + k*v^2
+           
             F_pull[i] = u * m * g + k * (v_max**2)
         else:
-            # Lên dốc 10 độ
+            
             alpha[i] = np.radians(10)
-            # F = k*v^2 + u*P*cos(10) + P*sin(10)
+           
             F_pull[i] = k * (v_max**2) + u * m * g * np.cos(alpha[i]) + m * g * np.sin(alpha[i])
             
     else:
         # Giai đoạn 3: Giảm tốc về 0
-        a_ideal = -50 / 27 # -100km/h trong 15s
+        a_ideal = -50 / 27 
         t_giam = time - 30
         v_ideal[i] = (250 / 9) + a_ideal * t_giam
         alpha[i] = 0
         if v_ideal[i] < 0: 
             v_ideal[i] = 0
             a_ideal = 0
-        # F = u*m*g + k*v^2 + m*a
+       
         F_pull[i] = u * m * g + k * (v_ideal[i]**2) + m * a_ideal
 
 # 3. Giải hệ phương trình bằng phương pháp Euler
@@ -102,7 +101,7 @@ a[-1] = a[-2]
 
 # 4. Vẽ đồ thị kết quả
 fig, axs = plt.subplots(4, 1, figsize=(10, 14))
-fig.suptitle('Mô phỏng Động học Xe bằng Phương pháp Euler', fontsize=16, fontweight='bold')
+fig.suptitle('Mô phỏng Động học Xe', fontsize=16, fontweight='bold')
 
 # Đồ thị Vị trí (x)
 axs[0].plot(t, x, 'b-', linewidth=2)
