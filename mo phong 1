@@ -1,0 +1,107 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1. Thiết lập các thông số thời gian
+t_total = 45 
+t = np.linspace(0, t_total, 1000)
+
+# Khởi tạo các mảng động học
+a = np.zeros_like(t)
+v = np.zeros_like(t)
+x = np.zeros_like(t)
+alpha = np.zeros_like(t) # Mảng lưu góc nghiêng dốc (radian)
+
+# Các hằng số động học
+v_max = 27.78       # m/s
+a_tang = 2.778      # m/s^2 
+a_giam = -1.852     # m/s^2 
+
+# Các hằng số vật lý của xe
+m = 1500            # kg (Khối lượng)
+g = 9.81            # m/s^2 (Gia tốc trọng trường)
+C_rr = 0.015        # Hệ số cản lăn
+k = 0.404           # Hệ số cản không khí 
+
+x_tai_10s = 0.5 * a_tang * (10**2)
+x_tai_30s = x_tai_10s + v_max * 20
+
+# 2. Xử lý logic động học và góc dốc
+for i, time in enumerate(t):
+    if time <= 10:
+        # Giai đoạn 1: Tăng tốc trên đường bằng
+        a[i] = a_tang
+        v[i] = a_tang * time
+        x[i] = 0.5 * a_tang * time**2
+        alpha[i] = 0
+        
+    elif time <= 30:
+        # Giai đoạn 2: Chạy ổn định
+        a[i] = 0
+        v[i] = v_max
+        x[i] = x_tai_10s + v_max * (time - 10)
+        
+        # Chia nhỏ địa hình trong Giai đoạn 2
+        if time <= 15:
+            alpha[i] = np.radians(-15) # 5s đầu: Xuống dốc 15 độ (âm)
+        elif time <= 25:
+            alpha[i] = 0               # 10s giữa: Đường bằng
+        else:
+            alpha[i] = np.radians(10)  # 5s cuối: Lên dốc 10 độ (dương)
+            
+    else:
+        # Giai đoạn 3: Giảm tốc trên đường bằng
+        t_giam = time - 30
+        a[i] = a_giam
+        v[i] = v_max + a_giam * t_giam
+        x[i] = x_tai_30s + v_max * t_giam + 0.5 * a_giam * (t_giam**2)
+        alpha[i] = 0
+
+v = np.maximum(v, 0) # Tránh vận tốc âm
+
+# 3. Tính toán Profile Lực
+F_inertia = m * a
+F_rolling = m * g * C_rr * np.cos(alpha)
+F_slope = m * g * np.sin(alpha)
+F_kk = k * (v**2) # Sử dụng công thức gọn: F_kk = k * v^2
+
+# Tổng lực kéo động cơ (âm có nghĩa là phải phanh)
+F_pull = F_inertia + F_rolling + F_slope + F_kk
+
+# 4. Vẽ đồ thị
+fig, axs = plt.subplots(4, 1, figsize=(10, 14))
+fig.suptitle('Biểu đồ Động học và Lực kéo Ô tô', fontsize=16, fontweight='bold')
+
+# Đồ thị Vị trí (x)
+axs[0].plot(t, x, 'b-', linewidth=2)
+axs[0].set_ylabel('Vị trí (m)', fontsize=12)
+
+# Đồ thị Vận tốc (v)
+axs[1].plot(t, v, 'g-', linewidth=2)
+axs[1].set_ylabel('Vận tốc (m/s)', fontsize=12)
+
+# Đồ thị Gia tốc (a)
+axs[2].plot(t, a, 'r-', linewidth=2)
+axs[2].set_ylabel('Gia tốc (m/s²)', fontsize=12)
+
+# Đồ thị Lực kéo (F_pull)
+axs[3].plot(t, F_pull, 'purple', linewidth=2)
+axs[3].set_ylabel('Lực kéo động cơ (N)', fontsize=12)
+axs[3].set_xlabel('Thời gian (s)', fontsize=12)
+axs[3].axhline(y=0, color='black', linestyle='-', linewidth=1) # Đường số 0
+
+# Format chung cho các đồ thị
+for ax in axs:
+    ax.grid(True, linestyle='--', alpha=0.7)
+    # Các mốc thời gian chính
+    for vline in [10, 15, 25, 30]:
+        ax.axvline(x=vline, color='gray', linestyle=':', alpha=0.5)
+    
+    # Đánh dấu vùng
+    ax.axvspan(0, 10, facecolor='lightgray', alpha=0.2)   # Tăng tốc
+    ax.axvspan(10, 15, facecolor='lightgreen', alpha=0.2) # Xuống dốc
+    ax.axvspan(15, 25, facecolor='lightblue', alpha=0.2)  # Bằng phẳng
+    ax.axvspan(25, 30, facecolor='lightyellow', alpha=0.2)# Lên dốc
+    ax.axvspan(30, 45, facecolor='lightpink', alpha=0.2)  # Giảm tốc
+
+plt.tight_layout()
+plt.show()
