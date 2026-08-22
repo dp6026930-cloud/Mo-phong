@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 1. Khởi tạo biến và hằng số
+#  Khởi tạo biến và hằng số
 m = 1500          # Khối lượng (kg)
 u = 0.015         # Hệ số ma sát
 k = 0.404         # Hệ số cản không khí
@@ -20,7 +20,7 @@ a = np.zeros(N_steps)
 F_pull = np.zeros(N_steps)
 alpha = np.zeros(N_steps) # Góc nghiêng (radian)
 
-# 2. Xác định Lực kéo (F) đầu vào 
+
 v_ideal = np.zeros(N_steps)
 for i in range(N_steps):
     time = t[i]
@@ -64,7 +64,7 @@ for i in range(N_steps):
        
         F_pull[i] = u * m * g + k * (v_ideal[i]**2) + m * a_ideal
 
-# 3. Giải hệ phương trình bằng phương pháp Euler
+
 for i in range(N_steps - 1):
     
     Normal_force = m * g * np.cos(alpha[i])
@@ -99,7 +99,7 @@ for i in range(N_steps - 1):
 
 a[-1] = a[-2]
 
-# 4. Vẽ đồ thị kết quả
+#  Vẽ đồ thị kết quả
 fig, axs = plt.subplots(4, 1, figsize=(10, 14))
 fig.suptitle('Mô phỏng Động học Xe', fontsize=16, fontweight='bold')
 
