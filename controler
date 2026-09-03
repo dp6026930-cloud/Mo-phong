@@ -1,15 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ============================================================
-# EV SPEED CONTROL – TASK 4.5 VALIDATION & FINAL CHECKLIST
-# 1) Constant force
-# 2) Constant speed: P vs PI
-# 3) Acceleration/braking ramps
-# 4) Full NEDC
-# 5) Additional test: vehicle mass +5%
-# 6) Final checklist
-# ============================================================
+
 m = 1600.0
 rho, Cd, A, Crr, g = 1.225, 0.29, 2.20, 0.012, 9.81
 theta = 0.0
@@ -73,44 +65,26 @@ def metrics(vref, v, e):
     dref = np.gradient(vref, dt)
     plateau = (np.abs(dref) < 1e-10) & moving
     return {
-        "RMS error (km/h)": np.sqrt(np.mean((e*3.6)**2)),
-        "MAE while moving (km/h)": np.mean(np.abs(e[moving]*3.6)),
-        "Maximum |error| (km/h)": np.max(np.abs(e*3.6)),
-        "MAE settled plateaus (km/h)": np.mean(np.abs(e[plateau]*3.6)),
+        "RMS error (m/s)": np.sqrt(np.mean((e)**2)),
+        "MAE while moving (m/s)": np.mean(np.abs(e[moving])),
+        "Maximum |error| (m/s)": np.max(np.abs(e)),
+        "MAE settled plateaus (m/s)": np.mean(np.abs(e[plateau])),
     }
 
 
-# ---------------- Task 1 : Constant force through the controller / Newton's law check ----------------
-# Purpose: drive the vehicle through the actual P-controller run() function, but
-# choose the reference vref(t) so that the tracking error stays exactly
-# e = F_test / Kp_P at every step. That forces the controller's own output
-# cmd = Kp_P * e to equal a constant F_test = 1600 N throughout - the force is
-# genuinely produced BY the controller, not injected from outside.
-# Resistance is disabled for this test so the result is a clean a = F/m check.
+# ----------------Constant force through the controller / Newton's law check ----------------
+
 F_test = 1600.0
 a_expected = F_test/m
-e_needed = F_test/Kp_P              # error that makes Kp_P*e equal F_test exactly
+e_needed = F_test/Kp_P            
 
 t1 = np.arange(0, 20+dt, dt)
-vref1 = e_needed + a_expected*t1    # reference ramp: keeps e(t) = e_needed at all times
+vref1 = e_needed + a_expected*t1    
 _, v1, e1, F1 = run(vref1, "P", apply_resistance=False)
 
 a_sim = np.gradient(v1, dt)
 max_diff_a = np.max(np.abs(a_sim - a_expected))
 max_diff_F = np.max(np.abs(F1[:-1] - F_test))
-
-print("\n" + "="*60)
-print("TASK 1 – CONSTANT FORCE THROUGH THE CONTROLLER")
-print("="*60)
-print("The reference vref(t) is shaped so the P controller's own error stays at "
-      f"e = F_test/Kp_P = {e_needed:.3f} m/s, so its output cmd = Kp_P*e is a "
-      f"genuine, controller-generated constant force.")
-print(f"Controller force stays within {max_diff_F:.2e} N of F_test = {F_test:.0f} N.")
-print(f"With F = {F_test:.0f} N and m = {m:.0f} kg, Newton's law gives "
-      f"a = F/m = {a_expected:.3f} m/s².")
-print(f"Simulated acceleration differs by at most {max_diff_a:.2e} m/s².")
-print("Result confirms the controller correctly produces the commanded force "
-      "and the vehicle obeys the basic equation of motion.")
 
 fig1, ax1 = plt.subplots(figsize=(9, 6))
 ax1.plot(t1, a_sim, color="tab:blue", lw=2, label="Simulated")
@@ -124,30 +98,28 @@ ax1.grid(alpha=0.3)
 fig1.tight_layout()
 fig1.savefig("task1_constant_force.png", dpi=150)
 
-# ---------------- Task 2 : Constant speed request ----------------
+# ---------------- Constant speed request ----------------
 t2 = np.arange(0, 30+dt, dt)
 vref2 = np.full_like(t2, 50.0/3.6)
 _, vP2, eP2, FP2 = run(vref2, "P")
 _, vPI2, ePI2, FPI2 = run(vref2, "PI")
 last = t2 >= 25
-ss_P = np.mean(eP2[last]*3.6)
-ss_PI = np.mean(ePI2[last]*3.6)
+ss_P = np.mean(eP2[last])
+ss_PI = np.mean(ePI2[last])
 
-print("\n" + "="*60)
-print("TASK 2 – CONSTANT SPEED REQUEST")
-print("="*60)
-print(f"P steady-state error (last 5 s)  = {ss_P:.3f} km/h")
-print(f"PI steady-state error (last 5 s) = {ss_PI:.3f} km/h")
-print("P keeps an offset because it needs a positive error to produce the "
-      "force that balances resistance. PI accumulates error and builds the "
-      "force needed to remove the offset.")
+print("\n")
+print("CONSTANT SPEED REQUEST")
+
+print(f"P steady-state error (last 5 s)  = {ss_P:.3f} m/s")
+print(f"PI steady-state error (last 5 s) = {ss_PI:.3f} m/s")
+
 
 fig2a, ax2a = plt.subplots(figsize=(9, 5.5))
-ax2a.plot(t2, vref2*3.6, color="tab:blue", label="Reference")
-ax2a.plot(t2, vP2*3.6, color="tab:orange", label="P")
-ax2a.plot(t2, vPI2*3.6, color="tab:green", label="PI")
+ax2a.plot(t2, vref2, color="tab:blue", label="Reference")
+ax2a.plot(t2, vP2, color="tab:orange", label="P")
+ax2a.plot(t2, vPI2, color="tab:green", label="PI")
 ax2a.set_xlabel("Time (s)")
-ax2a.set_ylabel("Speed (km/h)")
+ax2a.set_ylabel("Speed (m/s)")
 ax2a.set_title("Task 2 – Constant Speed: P vs PI")
 ax2a.legend()
 ax2a.grid(alpha=0.3)
@@ -155,17 +127,17 @@ fig2a.tight_layout()
 fig2a.savefig("task2_constant_speed.png", dpi=150)
 
 fig2b, ax2b = plt.subplots(figsize=(9, 5.5))
-ax2b.plot(t2, eP2*3.6, color="tab:blue", label="P error")
-ax2b.plot(t2, ePI2*3.6, color="tab:orange", label="PI error")
+ax2b.plot(t2, eP2, color="tab:blue", label="P error")
+ax2b.plot(t2, ePI2, color="tab:orange", label="PI error")
 ax2b.set_xlabel("Time (s)")
-ax2b.set_ylabel("Error (km/h)")
+ax2b.set_ylabel("Error (m/s)")
 ax2b.set_title("Task 2 – Constant Speed Error")
 ax2b.legend()
 ax2b.grid(alpha=0.3)
 fig2b.tight_layout()
 fig2b.savefig("task2_constant_speed_error.png", dpi=150)
 
-# ---------------- Task 3 : Acceleration and braking ramps ----------------
+# ----------------  Acceleration and braking ramps ----------------
 t3 = np.arange(0, 40+dt, dt)
 vref3 = np.piecewise(
     t3,
@@ -177,20 +149,20 @@ _, v3, e3, F3 = run(vref3, "PI")
 accel_mask = t3 < 10
 brake_mask = (t3 >= 20) & (t3 < 30)
 
-print("\n" + "="*60)
-print("TASK 3 – ACCELERATION AND BRAKING RAMPS")
-print("="*60)
+print("\n")
+print("ACCELERATION AND BRAKING RAMPS")
+
 print(f"Acceleration ramp force range: {F3[accel_mask].min():.1f} ... {F3[accel_mask].max():.1f} N")
 print(f"Braking ramp force range:      {F3[brake_mask].min():.1f} ... {F3[brake_mask].max():.1f} N")
 print(f"Overall force range:           {F3.min():.1f} ... {F3.max():.1f} N")
 print(f"Within [{Fmin:.0f}, {Fmax:.0f}] N:      {F3.min()>=Fmin and F3.max()<=Fmax}")
-print("Positive force is used to accelerate, negative force to brake.")
+
 
 fig3a, ax3a = plt.subplots(figsize=(9, 5.5))
-ax3a.plot(t3, vref3*3.6, color="tab:blue", label="Reference")
-ax3a.plot(t3, v3*3.6, color="tab:orange", label="PI")
+ax3a.plot(t3, vref3, color="tab:blue", label="Reference")
+ax3a.plot(t3, v3, color="tab:orange", label="PI")
 ax3a.set_xlabel("Time (s)")
-ax3a.set_ylabel("Speed (km/h)")
+ax3a.set_ylabel("Speed (m/s)")
 ax3a.set_title("Task 3 – Acceleration and Braking Ramps")
 ax3a.legend()
 ax3a.grid(alpha=0.3)
@@ -209,7 +181,7 @@ ax3b.grid(alpha=0.3)
 fig3b.tight_layout()
 fig3b.savefig("task3_force_limits.png", dpi=150)
 
-# ---------------- Task 4 : Full NEDC ----------------
+# ---------------- Full NEDC ----------------
 urban = np.array([
     [0, 0], [11, 0], [4, 15], [8, 15], [5, 0], [21, 0], [6, 15], [6, 32],
     [24, 32], [11, 0], [21, 0], [6, 15], [11, 35], [9, 50], [12, 50],
@@ -230,9 +202,9 @@ _, vPI4, ePI4, FPI4 = run(vref4, "PI")
 MP = metrics(vref4, vP4, eP4)
 MPI = metrics(vref4, vPI4, ePI4)
 
-print("\n" + "="*60)
-print("TASK 4 – FULL NEDC")
-print("="*60)
+print("\n")
+print(" FULL NEDC")
+
 print("NEDC simulated over 1180 s: four 195 s urban cycles + one 400 s extra-urban cycle.")
 print(f"{'Metric':<32}{'P':<10}{'PI'}")
 for k in MP:
@@ -240,11 +212,11 @@ for k in MP:
 print(f"PI requested force range: {FPI4.min()/1000:.3f} ... {FPI4.max()/1000:.3f} kN")
 
 fig4a, ax4a = plt.subplots(figsize=(11, 5))
-ax4a.plot(t4, vref4*3.6, color="tab:blue", lw=1, label="Reference")
-ax4a.plot(t4, vP4*3.6, color="tab:orange", alpha=0.9, label="P")
-ax4a.plot(t4, vPI4*3.6, color="tab:green", alpha=0.9, label="PI")
+ax4a.plot(t4, vref4, color="tab:blue", lw=1, label="Reference")
+ax4a.plot(t4, vP4, color="tab:orange", alpha=0.9, label="P")
+ax4a.plot(t4, vPI4, color="tab:green", alpha=0.9, label="PI")
 ax4a.set_xlabel("Time (s)")
-ax4a.set_ylabel("Speed (km/h)")
+ax4a.set_ylabel("Speed (m/s)")
 ax4a.set_title("Task 4 – Full NEDC Speed Tracking")
 ax4a.legend()
 ax4a.grid(alpha=0.3)
@@ -252,10 +224,10 @@ fig4a.tight_layout()
 fig4a.savefig("task4_nedc_speed.png", dpi=150)
 
 fig4b, ax4b = plt.subplots(figsize=(11, 5))
-ax4b.plot(t4, eP4*3.6, color="tab:blue", alpha=0.9, label="P error")
-ax4b.plot(t4, ePI4*3.6, color="tab:orange", alpha=0.9, label="PI error")
+ax4b.plot(t4, eP4, color="tab:blue", alpha=0.9, label="P error")
+ax4b.plot(t4, ePI4, color="tab:orange", alpha=0.9, label="PI error")
 ax4b.set_xlabel("Time (s)")
-ax4b.set_ylabel("Error (km/h)")
+ax4b.set_ylabel("Error (m/s)")
 ax4b.set_title("Task 4 – Full NEDC Tracking Error")
 ax4b.legend()
 ax4b.grid(alpha=0.3)
@@ -274,70 +246,5 @@ ax4c.legend()
 ax4c.grid(alpha=0.3)
 fig4c.tight_layout()
 fig4c.savefig("task4_nedc_force.png", dpi=150)
-
-# ---------------- Discussion ----------------
-print("\n" + "="*60)
-print("DISCUSSION – P OFFSET, PI, SATURATION AND ANTI-WINDUP")
-print("="*60)
-print("The P controller has a steady-state offset because Ft = Kp*e; if e = 0 "
-      "the controller produces no force, while the vehicle still needs force to "
-      "overcome drag and rolling resistance. PI fixes this with integral action. "
-      "Force saturation protects the traction/braking limits. When PI saturates, "
-      "anti-windup stops the integral from growing further in the direction that "
-      "deepens saturation.")
-
-# ---------------- Additional test : vehicle mass +5% ----------------
-m_plus5 = m*1.05
-_, vPI4_m5, ePI4_m5, FPI4_m5 = run(vref4, "PI", mass=m_plus5)
-M_m5 = metrics(vref4, vPI4_m5, ePI4_m5)
-
-print("\n" + "="*60)
-print("ADDITIONAL TEST – VEHICLE MASS +5%")
-print("="*60)
-print(f"Same PI gains, mass increased from {m:.0f} kg to {m_plus5:.0f} kg.")
-for k in M_m5:
-    print(f"{k:<32}{M_m5[k]:.3f}")
-print(f"Control force range: {FPI4_m5.min():.1f} ... {FPI4_m5.max():.1f} N")
-
-fig5, ax5 = plt.subplots(figsize=(11, 5))
-ax5.plot(t4, vref4*3.6, color="tab:blue", lw=1, label="Reference")
-ax5.plot(t4, vPI4_m5*3.6, color="tab:orange", alpha=0.9, label="PI, mass +5%")
-ax5.set_xlabel("Time (s)")
-ax5.set_ylabel("Speed (km/h)")
-ax5.set_title("Additional Test – Vehicle Mass +5%")
-ax5.legend()
-ax5.grid(alpha=0.3)
-fig5.tight_layout()
-fig5.savefig("task5_mass_plus5pct.png", dpi=150)
-
-# ---------------- Final checklist ----------------
-checklist = [
-    ("Speed converted km/h -> m/s in the equations", "PASS"),
-    ("Negative feedback uses e = vref - v", "PASS"),
-    ("Kp, Ki have correct units", "PASS"),
-    ("Gains designed from 1/(m*s) only", "PASS"),
-    ("Nonlinear Fr(v, theta) still used", "PASS"),
-    ("Traction/braking limits applied", "PASS"),
-    ("Integrator does not keep winding up under saturation", "PASS"),
-    ("Speed is clamped to be non-negative", "PASS"),
-    ("Simple tests run before the full NEDC", "PASS"),
-    ("Conclusions based on numerical error measures", "PASS"),
-]
-print("\n" + "="*60)
-print("FINAL CHECKLIST")
-print("="*60)
-for item, status in checklist:
-    print(f"{item:<55}{status}")
-
-# ---------------- Conclusion ----------------
-print("\n" + "="*60)
-print("CONCLUSION")
-print("="*60)
-print("The validation sequence shows the model satisfies the Final Checklist. "
-      "P has a steady-state offset, while PI removes most of the offset and "
-      "tracks the NEDC better. Force signs during acceleration/braking are "
-      "correct, force never exceeds the limits, and anti-windup is applied. "
-      "The quantitative results show PI is the more suitable choice for this "
-      "EV speed control problem.")
 
 plt.show()
