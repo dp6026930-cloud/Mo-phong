@@ -14,14 +14,6 @@ wn = 4/(zeta*Ts)
 Kp_PI = 2*zeta*wn*m
 Ki_PI = m*wn**2
 
-print("="*60)
-print("CONTROLLER DESIGN")
-print("="*60)
-print(f"{'Controller':<10}{'Gain':<6}{'Value'}")
-print(f"{'P':<10}{'Kp':<6}{Kp_P:.0f} N·s/m")
-print(f"{'PI':<10}{'Kp':<6}{Kp_PI:.0f} N·s/m")
-print(f"{'PI':<10}{'Ki':<6}{Ki_PI:.0f} N/m")
-
 
 def resistance(v, theta=0.0, mass=m):
     return 0.5*rho*Cd*A*v**2 + Crr*mass*g*np.cos(theta) + mass*g*np.sin(theta)
