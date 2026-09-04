@@ -86,7 +86,7 @@ ax1.set_ylim(a_expected-1, a_expected+1)
 ax1.legend()
 ax1.grid(alpha=0.3)
 fig1.tight_layout()
-fig1.savefig("task1_constant_force.png", dpi=150)
+
 
 # ---------------- Constant speed request ----------------
 t2 = np.arange(0, 30+dt, dt)
@@ -114,7 +114,7 @@ ax2a.set_title("Task 2 – Constant Speed: P vs PI")
 ax2a.legend()
 ax2a.grid(alpha=0.3)
 fig2a.tight_layout()
-fig2a.savefig("task2_constant_speed.png", dpi=150)
+
 
 fig2b, ax2b = plt.subplots(figsize=(9, 5.5))
 ax2b.plot(t2, eP2, color="tab:blue", label="P error")
@@ -125,7 +125,7 @@ ax2b.set_title("Task 2 – Constant Speed Error")
 ax2b.legend()
 ax2b.grid(alpha=0.3)
 fig2b.tight_layout()
-fig2b.savefig("task2_constant_speed_error.png", dpi=150)
+
 
 # ----------------  Acceleration and braking ramps ----------------
 t3 = np.arange(0, 40+dt, dt)
@@ -157,7 +157,7 @@ ax3a.set_title("Task 3 – Acceleration and Braking Ramps")
 ax3a.legend()
 ax3a.grid(alpha=0.3)
 fig3a.tight_layout()
-fig3a.savefig("task3_ramps.png", dpi=150)
+
 
 fig3b, ax3b = plt.subplots(figsize=(9, 5.5))
 ax3b.plot(t3, F3, color="tab:blue", label="Requested force")
@@ -169,7 +169,7 @@ ax3b.set_title("Task 3 – Force Sign and Limits")
 ax3b.legend()
 ax3b.grid(alpha=0.3)
 fig3b.tight_layout()
-fig3b.savefig("task3_force_limits.png", dpi=150)
+
 
 # ---------------- Full NEDC ----------------
 urban = np.array([
@@ -211,7 +211,7 @@ ax4a.set_title("Task 4 – Full NEDC Speed Tracking")
 ax4a.legend()
 ax4a.grid(alpha=0.3)
 fig4a.tight_layout()
-fig4a.savefig("task4_nedc_speed.png", dpi=150)
+
 
 fig4b, ax4b = plt.subplots(figsize=(11, 5))
 ax4b.plot(t4, eP4, color="tab:blue", alpha=0.9, label="P error")
@@ -222,7 +222,7 @@ ax4b.set_title("Task 4 – Full NEDC Tracking Error")
 ax4b.legend()
 ax4b.grid(alpha=0.3)
 fig4b.tight_layout()
-fig4b.savefig("task4_nedc_error.png", dpi=150)
+
 
 fig4c, ax4c = plt.subplots(figsize=(11, 5))
 ax4c.plot(t4, FP4, color="tab:blue", alpha=0.8, label="P force")
@@ -235,6 +235,6 @@ ax4c.set_title("Task 4 – Requested Force")
 ax4c.legend()
 ax4c.grid(alpha=0.3)
 fig4c.tight_layout()
-fig4c.savefig("task4_nedc_force.png", dpi=150)
+
 
 plt.show()
