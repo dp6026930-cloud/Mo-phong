@@ -8,7 +8,7 @@ theta = 0.0
 Fmax, Fmin, dt = 5000.0, -4000.0, 0.02
 Ts, zeta = 4.0, 1.0
 
-# Gains designed from the plant G(s) = 1/(m*s) only
+
 Kp_P = 4*m/Ts
 wn = 4/(zeta*Ts)
 Kp_PI = 2*zeta*wn*m
@@ -20,9 +20,7 @@ def resistance(v, theta=0.0, mass=m):
 
 
 def run(vref, controller="PI", mass=m, apply_resistance=True):
-    """Simulate vehicle speed tracking with a P or PI controller.
-    apply_resistance=False disables the resistance term in the physics update
-    (used only for the clean Task 1 F=const validation)."""
+   
     vref = np.asarray(vref, float)
     t = np.arange(len(vref))*dt
     v = np.zeros_like(vref)
