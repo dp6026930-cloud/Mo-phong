@@ -1,0 +1,128 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+m = 1600.0
+rho, Cd, A, Crr, g = 1.225, 0.29, 2.20, 0.012, 9.81
+theta = math.radians(5.0)
+Fmax, Fmin, dt = 5000.0, -4000.0, 0.02
+Ts, zeta = 4.0, 1.0
+
+
+Kp_P = 4*m/Ts
+wn = 4/(zeta*Ts)
+Kp_PI = 2*zeta*wn*m
+Ki_PI = m*wn**2
+
+
+def resistance(v, theta= math.radians(30.0), mass=m):
+    return 0.5*rho*Cd*A*v**2 + Crr*mass*g*np.cos(theta) + mass*g*np.sin(theta)
+
+
+def run(vref, controller="PI", mass=m, apply_resistance=True):
+   
+    vref = np.asarray(vref, float)
+    t = np.arange(len(vref))*dt
+    v = np.zeros_like(vref)
+    e = np.zeros_like(vref)
+    F = np.zeros_like(vref)
+    z = 0.0
+    for k in range(len(vref)-1):
+        e[k] = vref[k]-v[k]                     # negative feedback: e = vref - v
+        if controller == "P":
+            cmd = Kp_P*e[k]
+        else:
+            cmd = Kp_PI*e[k] + Ki_PI*z
+        F[k] = np.clip(cmd, Fmin, Fmax)          # traction/braking force limits
+        # Conditional-integration anti-windup
+        if controller == "PI":
+            high = cmd > Fmax
+            low = cmd < Fmin
+            if ((not high and not low) or
+                (high and e[k] < 0) or
+                (low and e[k] > 0)):
+                z += dt*e[k]
+        res = resistance(v[k], theta, mass) if apply_resistance else 0.0
+        a = (F[k]-res)/mass
+        v[k+1] = max(0.0, v[k] + dt*a)           # speed cannot be negative
+    e[-1] = vref[-1]-v[-1]
+    F[-1] = F[-2] if len(F) > 1 else 0
+    return t, v, e, F
+
+
+def metrics(vref, v, e):
+    moving = v > 0.1
+    dref = np.gradient(vref, dt)
+    plateau = (np.abs(dref) < 1e-10) & moving
+    return {
+        "RMS error (m/s)": np.sqrt(np.mean((e)**2)),
+        "MAE while moving (m/s)": np.mean(np.abs(e[moving])),
+        "Maximum |error| (m/s)": np.max(np.abs(e)),
+        "MAE settled plateaus (m/s)": np.mean(np.abs(e[plateau])),
+    }
+urban = np.array([
+    [0, 0], [11, 0], [4, 15], [8, 15], [5, 0], [21, 0], [6, 15], [6, 32],
+    [24, 32], [11, 0], [21, 0], [6, 15], [11, 35], [9, 50], [12, 50],
+    [8, 35], [15, 35], [10, 0], [7, 0]
+], float)
+eudc = np.array([
+    [0, 0], [20, 0], [6, 15], [11, 35], [10, 50], [14, 70], [50, 70],
+    [8, 50], [69, 50], [13, 70], [50, 70], [35, 100], [30, 100], [20, 120],
+    [10, 120], [16, 80], [8, 50], [10, 0], [20, 0]
+], float)
+segments = np.vstack([urban]*4+[eudc])
+tp = np.cumsum(segments[:, 0])
+sp = segments[:, 1]
+t4 = np.arange(0, 1180+1e-12, dt)
+vref4 = np.interp(t4, tp, sp)/3.6
+_, vP4, eP4, FP4 = run(vref4, "P")
+_, vPI4, ePI4, FPI4 = run(vref4, "PI")
+MP = metrics(vref4, vP4, eP4)
+MPI = metrics(vref4, vPI4, ePI4)
+
+print("\n")
+print(" FULL NEDC")
+
+print("NEDC simulated over 1180 s: four 195 s urban cycles + one 400 s extra-urban cycle.")
+print(f"{'Metric':<32}{'P':<10}{'PI'}")
+for k in MP:
+    print(f"{k:<32}{MP[k]:<10.3f}{MPI[k]:.3f}")
+print(f"PI requested force range: {FPI4.min()/1000:.3f} ... {FPI4.max()/1000:.3f} kN")
+
+fig4a, ax4a = plt.subplots(figsize=(11, 5))
+ax4a.plot(t4, vref4, color="tab:blue", lw=1, label="Reference")
+ax4a.plot(t4, vP4, color="tab:orange", alpha=0.9, label="P")
+ax4a.plot(t4, vPI4, color="tab:green", alpha=0.9, label="PI")
+ax4a.set_xlabel("Time (s)")
+ax4a.set_ylabel("Speed (m/s)")
+ax4a.set_title(" a constant uphill grade – Full NEDC Speed Tracking")
+ax4a.legend()
+ax4a.grid(alpha=0.3)
+fig4a.tight_layout()
+
+
+fig4b, ax4b = plt.subplots(figsize=(11, 5))
+ax4b.plot(t4, eP4, color="tab:blue", alpha=0.9, label="P error")
+ax4b.plot(t4, ePI4, color="tab:orange", alpha=0.9, label="PI error")
+ax4b.set_xlabel("Time (s)")
+ax4b.set_ylabel("Error (m/s)")
+ax4b.set_title(" a constant uphill grade – Full NEDC Tracking Error")
+ax4b.legend()
+ax4b.grid(alpha=0.3)
+fig4b.tight_layout()
+
+
+fig4c, ax4c = plt.subplots(figsize=(11, 5))
+ax4c.plot(t4, FP4, color="tab:blue", alpha=0.8, label="P force")
+ax4c.plot(t4, FPI4, color="tab:orange", alpha=0.8, label="PI force")
+ax4c.axhline(Fmax, color="tab:blue", ls="--", label="Fmax")
+ax4c.axhline(Fmin, color="tab:blue", ls="--", label="Fmin")
+ax4c.set_xlabel("Time (s)")
+ax4c.set_ylabel("Force (N)")
+ax4c.set_title(" a constant uphill grade– Requested Force")
+ax4c.legend()
+ax4c.grid(alpha=0.3)
+fig4c.tight_layout()
+
+
+plt.show()
