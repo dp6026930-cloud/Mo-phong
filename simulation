@@ -1,0 +1,232 @@
+# -*- coding: utf-8 -*-
+"""
+MO PHONG MACH KIN NOI TIEP: Nguon ap - Dien tro - Cuon cam - (Tu dien - tuy chon)
+
+- Neu C = None    -> mach RL   : L*di/dt + R*i = V(t)
+- Neu C khac None -> mach RLC  : L*di/dt + R*i + q/C = V(t),  dq/dt = i
+
+Voi moi truong hop, chuong trinh xuat ra:
+  1) Do thi dong dien i(t)
+  2) Do thi hieu dien the tren tung phan tu: V_R(t), V_L(t), (V_C(t) neu co)
+  3) So do mach dien (nguon ap, dien tro, cuon cam, va tu dien neu co)
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import odeint
+
+
+def simulate_circuit(V0, R, L, C=None, t_end=None, n_points=3000):
+    """
+    Mo phong mach RL (C=None) hoac RLC (C=gia tri) noi tiep voi nguon DC step.
+    Tra ve: t, i, thong_tin (dict chua ca cac mang hieu dien the V_R, V_L, V_C)
+    """
+    if t_end is None:
+        if C is None:
+            t_end = 5 * (L / R)                      # ~5 tau
+        else:
+            alpha = R / (2 * L)
+            omega0 = 1 / np.sqrt(L * C)
+            t_end = 5 / alpha if alpha > 0 else 20 / omega0
+
+    t = np.linspace(0, t_end, n_points)
+
+    def V_source(t):
+        return V0  # nguon DC dong mach tai t = 0
+
+    if C is None:
+        # ---------- MACH RL ----------
+        def di_dt(i, t):
+            return (V_source(t) - R * i) / L
+
+        i = odeint(di_dt, 0.0, t).flatten()
+
+        V_R = R * i
+        V_L = V0 - V_R          # tu KVL: V = V_R + V_L
+
+        tau = L / R
+        thong_tin = {
+            "loai_mach": "RL",
+            "tau": tau,
+            "i_xac_lap": V0 / R,
+            "V_R": V_R,
+            "V_L": V_L,
+            "V_C": None,
+        }
+
+    else:
+        # ---------- MACH RLC ----------
+        def derivs(y, t):
+            i, q = y
+            di_dt = (V_source(t) - R * i - q / C) / L
+            dq_dt = i
+            return [di_dt, dq_dt]
+
+        sol = odeint(derivs, [0.0, 0.0], t)
+        i = sol[:, 0]
+        q = sol[:, 1]
+
+        V_R = R * i
+        V_C = q / C
+        V_L = V0 - V_R - V_C    # tu KVL: V = V_R + V_L + V_C
+
+        alpha = R / (2 * L)
+        omega0 = 1 / np.sqrt(L * C)
+        if alpha < omega0:
+            che_do = "dao dong tat dan (underdamped)"
+        elif np.isclose(alpha, omega0):
+            che_do = "tat toi han (critically damped)"
+        else:
+            che_do = "qua tat (overdamped)"
+
+        thong_tin = {
+            "loai_mach": "RLC",
+            "alpha": alpha,
+            "omega0": omega0,
+            "che_do": che_do,
+            "V_R": V_R,
+            "V_L": V_L,
+            "V_C": V_C,
+        }
+
+    return t, i, thong_tin
+
+
+def ve_dothi_dongdien(t, i, thong_tin, ten_file=None):
+    """Ve do thi dong dien i(t)."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    if thong_tin["loai_mach"] == "RL":
+        ax.plot(t * 1000, i, color="tab:blue", lw=2, label="i(t)")
+        ax.axhline(thong_tin["i_xac_lap"], color="gray", ls="--", lw=1,
+                   label=f"I_xac_lap = {thong_tin['i_xac_lap']:.2f} A")
+        ax.axvline(thong_tin["tau"] * 1000, color="green", ls=":", lw=1,
+                   label=f"tau = {thong_tin['tau']*1000:.1f} ms")
+        tieu_de = "Dap ung dong dien mach RL noi tiep"
+    else:
+        ax.plot(t * 1000, i, color="tab:red", lw=1.8, label="i(t)")
+        tieu_de = f"Dap ung dong dien mach RLC noi tiep\n({thong_tin['che_do']})"
+
+    ax.set_xlabel("Thoi gian t (ms)")
+    ax.set_ylabel("Dong dien i(t) (A)")
+    ax.set_title(tieu_de)
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    if ten_file:
+        fig.savefig(ten_file, dpi=150)
+    # Khong dong figure de co the hien thi bang plt.show() o cuoi chuong trinh
+
+
+def ve_dienap(t, thong_tin, ten_file=None):
+    """Ve do thi hieu dien the tren tung phan tu: V_R(t), V_L(t), (V_C(t) neu co)."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.plot(t * 1000, thong_tin["V_R"], color="tab:orange", lw=2, label="V_R(t)")
+    ax.plot(t * 1000, thong_tin["V_L"], color="tab:green", lw=2, label="V_L(t)")
+    if thong_tin["V_C"] is not None:
+        ax.plot(t * 1000, thong_tin["V_C"], color="tab:purple", lw=2, label="V_C(t)")
+
+    tieu_de = f"Hieu dien the tren cac phan tu mach {thong_tin['loai_mach']}"
+    ax.set_xlabel("Thoi gian t (ms)")
+    ax.set_ylabel("Hieu dien the (V)")
+    ax.set_title(tieu_de)
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+    if ten_file:
+        fig.savefig(ten_file, dpi=150)
+    # Khong dong figure de co the hien thi bang plt.show() o cuoi chuong trinh
+
+
+def ve_sodomach(V0, R, L, C, ten_file=None):
+    """Ve so do mach: nguon ap - dien tro - cuon cam - (tu dien neu co)."""
+    co_tu = C is not None
+    x_max = 11 if co_tu else 10
+
+    fig, ax = plt.subplots(figsize=(9 if co_tu else 8, 4))
+    ax.set_xlim(0, x_max)
+    ax.set_ylim(0, 6)
+    ax.axis("off")
+
+    x_phai = x_max - 1
+
+    # Khung day dan
+    ax.plot([1, 1], [1, 5], color="black", lw=2)
+    ax.plot([1, x_phai], [5, 5], color="black", lw=2)
+    ax.plot([x_phai, x_phai], [5, 1], color="black", lw=2)
+    ax.plot([1, 3], [1, 1], color="black", lw=2)
+    ax.plot([x_phai - 2, x_phai], [1, 1], color="black", lw=2)
+
+    # --- Nguon ap V ---
+    circle = plt.Circle((1, 3), 0.5, fill=False, color="black", lw=2)
+    ax.add_patch(circle)
+    ax.plot([1, 1], [2.5, 1], color="black", lw=2)
+    ax.text(1, 3, "+\n-", ha="center", va="center", fontsize=9)
+    ax.text(0.3, 3, f"V = {V0} V", ha="right", va="center", fontsize=11)
+
+    if co_tu:
+        # --- Dien tro R ---
+        xr = np.linspace(3.3, 5.0, 13)
+        yr = 5 + 0.22 * np.array([0, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, 0])
+        ax.plot(xr, yr, color="black", lw=2)
+        ax.text(4.15, 5.55, f"R = {R} Ohm", ha="center", fontsize=10)
+
+        # --- Cuon cam L ---
+        xl = np.linspace(5.5, 7.2, 200)
+        yl = 5 + 0.22 * np.sin(2 * np.pi * 4 * (xl - 5.5))
+        ax.plot(xl, yl, color="black", lw=2)
+        ax.text(6.35, 5.55, f"L = {L} H", ha="center", fontsize=10)
+
+        # --- Tu dien C (canh phai) ---
+        ax.plot([9.7, 10.3], [3.35, 3.35], color="black", lw=2)
+        ax.plot([9.7, 10.3], [2.65, 2.65], color="black", lw=2)
+        ax.plot([10, 10], [5, 3.35], color="black", lw=2)
+        ax.plot([10, 10], [2.65, 1], color="black", lw=2)
+        ax.text(10.6, 3, f"C = {C*1e6:.0f} uF", ha="left", va="center", fontsize=10)
+
+        tieu_de = "So do mach RLC noi tiep"
+    else:
+        # --- Dien tro R ---
+        xr = np.linspace(3.5, 5.5, 13)
+        yr = 5 + 0.25 * np.array([0, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, 0])
+        ax.plot(xr, yr, color="black", lw=2)
+        ax.text(4.5, 5.6, f"R = {R} Ohm", ha="center", fontsize=11)
+
+        # --- Cuon cam L ---
+        xl = np.linspace(6, 8, 200)
+        yl = 5 + 0.25 * np.sin(2 * np.pi * 4 * (xl - 6))
+        ax.plot(xl, yl, color="black", lw=2)
+        ax.text(7, 5.6, f"L = {L} H", ha="center", fontsize=11)
+
+        tieu_de = "So do mach RL noi tiep"
+
+    ax.set_title(tieu_de, fontsize=13)
+    fig.tight_layout()
+    if ten_file:
+        fig.savefig(ten_file, dpi=150)
+    # Khong dong figure de co the hien thi bang plt.show() o cuoi chuong trinh
+
+
+# ==================== CHAY MO PHONG ====================
+if __name__ == "__main__":
+    # ---------- TASK 1: MACH RL (V - R - L) ----------
+    t1, i1, tt1 = simulate_circuit(V0=12.0, R=10.0, L=0.5, C=None)
+    ve_dothi_dongdien(t1, i1, tt1, "dothi_dongdien_RL.png")
+    ve_dienap(t1, tt1, "dienap_RL.png")
+    ve_sodomach(V0=12.0, R=10.0, L=0.5, C=None, ten_file="sodomach_RL.png")
+    print("[RL]  tau =", round(tt1["tau"], 4), "s   |   I_xac_lap =", round(tt1["i_xac_lap"], 4), "A")
+
+    # ---------- TASK 2: MACH RLC (V - R - L - C) ----------
+    t2, i2, tt2 = simulate_circuit(V0=12.0, R=5.0, L=0.1, C=100e-6)
+    ve_dothi_dongdien(t2, i2, tt2, "dothi_dongdien_RLC.png")
+    ve_dienap(t2, tt2, "dienap_RLC.png")
+    ve_sodomach(V0=12.0, R=5.0, L=0.1, C=100e-6, ten_file="sodomach_RLC.png")
+    print("[RLC] alpha =", round(tt2["alpha"], 2), "  omega0 =", round(tt2["omega0"], 2),
+          "  che_do:", tt2["che_do"])
+
+    print("Da luu: dothi_dongdien_RL.png, dienap_RL.png, sodomach_RL.png, "
+          "dothi_dongdien_RLC.png, dienap_RLC.png, sodomach_RLC.png")
+
+    # ---------- XUAT RA CUA SO FIGURE (hien thi truc tiep) ----------
+    plt.show()
