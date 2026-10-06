@@ -1,49 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-MO PHONG MACH DIEN 
-
-- TASK 1: Mach RL   noi tiep:  V - R - L
-- TASK 2: Mach RLC  noi tiep:  V - R - L - C
-    * Cach A: lap he phuong trinh vi phan bac 1 (i, q) + Euler tien
-    * Cach B: dao ham 2 ve -> phuong trinh vi phan bac 2 theo i + sai phan bac 2
-    * So sanh A, B voi nghiem giai tich
-- TASK 3: Mach buck don gian:  Nguon 220V - Khoa K - L - (C // Tai 5 ohm) + diode xa D1
-- TASK 4: Giong Task 3 nhung tai la NGUON DONG 1 A (thay cho dien tro 5 ohm):
-    * 4A: ho vong (cung duty nhu Task 3)
-    * 4B: kin vong, dieu khien luong cap (vong dong trong + vong ap ngoai, PI)
-
-Y TUONG SAI PHAN:
-  di/dt ~ (i[n+1] - i[n]) / dt   =>   i[n+1] = i[n] + dt * f(i[n], ...)
-
-  Task 1 (RL):   f = (V - R*i) / L
-  Task 2 (RLC):  f = (V - R*i - q/C) / L,  dq/dt = i
-  Task 3 (buck): L*diL/dt = vsw - vC
-                 C*dvC/dt = iL - vC/Rtai
-                 vsw = Vin - Ron*iL   (K dong)
-                 vsw = -Vd            (K mo, diode dan, iL > 0)
-                 vsw = vC             (K mo, iL = 0: che do dong gian doan)
-
-Chuong trinh xuat ra:
-  1) Do thi dong dien i(t)
-  2) Do thi hieu dien the tren tung phan tu
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 
-OUT_DIR = "/mnt/user-data/outputs"
-
-
-# =====================================================================
 #  TASK 1 + TASK 2: MACH RL va RLC
-# =====================================================================
-def simulate_circuit(V0, R, L, C=None, t_end=None, n_points=3000):
-    """
-    Mo phong mach RL (C=None) hoac RLC (C=gia tri) noi tiep voi nguon DC step
 
-    Tra ve: t, i, thong_tin (dict chua ca cac mang hieu dien the V_R, V_L, V_C)
-    """
-    # ----- Xac dinh khoang thoi gian mo phong t_end -----
+def simulate_circuit(V0, R, L, C=None, t_end=None, n_points=3000):
     if t_end is None:
         if C is None:
             t_end = 5 * (L / R)                      # ~5 tau
@@ -51,140 +11,97 @@ def simulate_circuit(V0, R, L, C=None, t_end=None, n_points=3000):
             alpha = R / (2 * L)
             omega0 = 1 / np.sqrt(L * C)
             t_end = 5 / alpha if alpha > 0 else 20 / omega0
-
-    # ----- Tao truc thoi gian roi rac voi buoc dt co dinh -----
     t = np.linspace(0, t_end, n_points)
     dt = t[1] - t[0]
 
-    def V_source(tk):
+    def e(tk):
         return V0  # nguon DC dong mach tai t = 0
 
     if C is None:
-        # ================= MACH RL =================
         i = np.zeros(n_points)
-        i[0] = 0.0  # dieu kien dau: dong dien qua cuon cam bang 0
+        i[0] = 0.0  
 
         for n in range(n_points - 1):
-            di_dt_n = (V_source(t[n]) - R * i[n]) / L
-            i[n + 1] = i[n] + dt * di_dt_n
+            
+            i[n + 1] = i[n]*(1-R*dt/L) + e(t[n])*dt/L
 
-        V_R = R * i
-        V_L = V0 - V_R          # tu KVL: V = V_R + V_L
+        U_R = R * i
+        U_L = V0 - U_R         
 
-        tau = L / R
         thong_tin = {
             "loai_mach": "RL",
-            "tau": tau,
             "i_xac_lap": V0 / R,
-            "V_R": V_R,
-            "V_L": V_L,
-            "V_C": None,
+            "U_R": U_R,
+            "U_L": U_L,
+            "U_C": None,
         }
 
     else:
-        # ================= MACH RLC =================
+        
         i = np.zeros(n_points)
         q = np.zeros(n_points)
-        i[0] = 0.0  # dong dien ban dau = 0
-        q[0] = 0.0  # dien tich tren tu ban dau = 0
+        i[0] = 0.0  
+        q[0] = 0.0  
 
         for n in range(n_points - 1):
-            di_dt_n = (V_source(t[n]) - R * i[n] - q[n] / C) / L
-            dq_dt_n = i[n]
+            
+            i[n + 1] = i[n] + dt * ((e(t[n]) - R * i[n] - q[n] / C) / L)
+            q[n + 1] = q[n] + dt * i[n]
 
-            i[n + 1] = i[n] + dt * di_dt_n
-            q[n + 1] = q[n] + dt * dq_dt_n
-
-        V_R = R * i
-        V_C = q / C
-        V_L = V0 - V_R - V_C    # tu KVL: V = V_R + V_L + V_C
-
-        alpha = R / (2 * L)
-        omega0 = 1 / np.sqrt(L * C)
-        if alpha < omega0:
-            che_do = "dao dong tat dan (underdamped)"
-        elif np.isclose(alpha, omega0):
-            che_do = "tat toi han (critically damped)"
-        else:
-            che_do = "qua tat (overdamped)"
+        U_R = R * i
+        U_C = q / C
+        U_L = V0 - U_R - U_C    
 
         thong_tin = {
             "loai_mach": "RLC",
-            "alpha": alpha,
-            "omega0": omega0,
-            "che_do": che_do,
-            "V_R": V_R,
-            "V_L": V_L,
-            "V_C": V_C,
+            "U_R": U_R,
+            "U_L": U_L,
+            "U_C": U_C,
         }
 
     return t, i, thong_tin
 
 
 def ve_dothi_dongdien(t, i, thong_tin):
-    """Ve do thi dong dien i(t) cho Task 1 / Task 2."""
     fig, ax = plt.subplots(figsize=(8, 5))
 
     if thong_tin["loai_mach"] == "RL":
         ax.plot(t * 1000, i, color="tab:blue", lw=2, label="i(t)")
         ax.axhline(thong_tin["i_xac_lap"], color="gray", ls="--", lw=1,
                    label=f"I_xac_lap = {thong_tin['i_xac_lap']:.2f} A")
-        ax.axvline(thong_tin["tau"] * 1000, color="green", ls=":", lw=1,
-                   label=f"tau = {thong_tin['tau']*1000:.1f} ms")
-        tieu_de = "Dong dien mach RL "
+        tieu_de = "Dòng điện mạch RL"
     else:
         ax.plot(t * 1000, i, color="tab:red", lw=1.8, label="i(t)")
-        tieu_de = f"Dong dien mach RLC \n({thong_tin['che_do']})"
+        tieu_de = "Dòng điện mạch RLC"
 
-    ax.set_xlabel("Thoi gian t (ms)")
-    ax.set_ylabel("Dong dien i(t) (A)")
+    ax.set_xlabel("Thời gian t (ms)")
+    ax.set_ylabel("Dòng điện i(t) (A)")
     ax.set_title(tieu_de)
     ax.grid(True, alpha=0.3)
     ax.legend()
     fig.tight_layout()
-
+   
 
 
 def ve_dienap(t, thong_tin):
-    """Ve do thi hieu dien the tren tung phan tu: V_R(t), V_L(t), (V_C(t) neu co)."""
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    ax.plot(t * 1000, thong_tin["V_R"], color="tab:orange", lw=2, label="V_R(t)")
-    ax.plot(t * 1000, thong_tin["V_L"], color="tab:green", lw=2, label="V_L(t)")
-    if thong_tin["V_C"] is not None:
-        ax.plot(t * 1000, thong_tin["V_C"], color="tab:purple", lw=2, label="V_C(t)")
+    ax.plot(t * 1000, thong_tin["U_R"], color="tab:orange", lw=2, label="U_R(t)")
+    ax.plot(t * 1000, thong_tin["U_L"], color="tab:green", lw=2, label="U_L(t)")
+    if thong_tin["U_C"] is not None:
+        ax.plot(t * 1000, thong_tin["U_C"], color="tab:purple", lw=2, label="U_C(t)")
 
-    ax.set_xlabel("Thoi gian t (ms)")
-    ax.set_ylabel("Hieu dien the (V)")
-    ax.set_title(f"Hieu dien the tren cac phan tu mach {thong_tin['loai_mach']}")
+    ax.set_xlabel("Thời gian t (ms)")
+    ax.set_ylabel("Hiệu điện thế (V)")
+    ax.set_title(f"Hiệu điện thế trên các phần tử mạch {thong_tin['loai_mach']}")
     ax.grid(True, alpha=0.3)
     ax.legend()
     fig.tight_layout()
+  
 
-
-
-
-# =====================================================================
 #  TASK 2 - CACH B: DAO HAM 2 VE + SAI PHAN BAC 2
-# =====================================================================
+
 def simulate_rlc_bac2(V0, R, L, C, t_end=None, n_points=3000):
-    """
-    Cach B. Xuat phat tu  L*di/dt + R*i + q/C = V0.
-    Dao ham 2 ve theo t (dq/dt = i, V0 = const):
-        L*i'' + R*i' + i/C = 0
-    Sai phan bac 2 (sai phan trung tam):
-        i''  ~ (i[n+1] - 2 i[n] + i[n-1]) / dt^2
-        i'   ~ (i[n+1] - i[n-1]) / (2 dt)
-    =>  i[n+1] = [ (2L/dt^2 - 1/C) i[n] - (L/dt^2 - R/(2dt)) i[n-1] ]
-                 / (L/dt^2 + R/(2dt))
-    Dieu kien dau (lay tu phuong trinh goc tai t = 0, q(0) = 0):
-        i(0)  = 0
-        i'(0) = V0 / L
-        i''(0) = -(R*i'(0) + i(0)/C) / L = -R*V0/L^2
-    Buoc dau tien i[1] tinh bang khai trien Taylor bac 2:
-        i[1] = i[0] + dt*i'(0) + dt^2/2 * i''(0)
-    Dien ap: V_R = R*i ; V_L = L*di/dt (sai phan trung tam) ; V_C = V0 - V_R - V_L
-    """
     alpha = R / (2 * L)
     omega0 = 1 / np.sqrt(L * C)
     if t_end is None:
@@ -204,7 +121,7 @@ def simulate_rlc_bac2(V0, R, L, C, t_end=None, n_points=3000):
     for n in range(1, n_points - 1):
         i[n + 1] = ((2 * a - 1 / C) * i[n] - (a - b) * i[n - 1]) / (a + b)
 
-    # di/dt bang sai phan trung tam (2 dau dung gia tri da biet / sai phan lui)
+    
     didt = np.zeros(n_points)
     didt[1:-1] = (i[2:] - i[:-2]) / (2 * dt)
     didt[0] = di0
@@ -213,17 +130,52 @@ def simulate_rlc_bac2(V0, R, L, C, t_end=None, n_points=3000):
     V_R = R * i
     V_L = L * didt
     V_C = V0 - V_R - V_L
-    return t, i, {"V_R": V_R, "V_L": V_L, "V_C": V_C, "dt": dt}
+    return t, i, {"U_R": V_R, "U_L": V_L, "U_C": V_C, "dt": dt}
+
+def ve_task2B(t, i, thong_tin):
+    ms = t * 1000
+
+    fig1, ax1 = plt.subplots(figsize=(10, 5))
+
+    ax1.plot(ms, i, lw=2, label="i(t)")
+
+    ax1.set_xlabel("Thời gian t (ms)")
+    ax1.set_ylabel("Dòng điện i(t) (A)")
+    ax1.set_title("Dòng điện trong mạch RLC")
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+
+    fig1.tight_layout()
+
+
+   
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+
+    ax2.plot(ms, thong_tin["U_R"],
+             lw=2, label="U_R(t)")
+
+    ax2.plot(ms, thong_tin["U_L"],
+             lw=2, label="U_L(t)")
+
+    ax2.plot(ms, thong_tin["U_C"],
+             lw=2, label="U_C(t)")
+
+    ax2.set_xlabel("Thời gian t (ms)")
+    ax2.set_ylabel("Hiệu điện thế (V)")
+    ax2.set_title("Hiệu điện thế trên các phần tử mạch RLC")
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+
+    fig2.tight_layout()
 
 
 def nghiem_giai_tich_rlc(t, V0, R, L, C):
-    """Nghiem chinh xac cua mach RLC underdamped (dung lam chuan so sanh)."""
     alpha = R / (2 * L)
     w0 = 1 / np.sqrt(L * C)
     wd = np.sqrt(w0**2 - alpha**2)
     i = V0 / (wd * L) * np.exp(-alpha * t) * np.sin(wd * t)
-    V_C = V0 * (1 - np.exp(-alpha * t) * (np.cos(wd * t) + alpha / wd * np.sin(wd * t)))
-    return i, V_C
+    U_C = V0 * (1 - np.exp(-alpha * t) * (np.cos(wd * t) + alpha / wd * np.sin(wd * t)))
+    return i, U_C
 
 
 def so_sanh_task2(V0, R, L, C, n_points=3000):
@@ -232,77 +184,45 @@ def so_sanh_task2(V0, R, L, C, n_points=3000):
     tB, iB, ttB = simulate_rlc_bac2(V0, R, L, C, t_end=tA[-1], n_points=n_points)
     i_ex, vC_ex = nghiem_giai_tich_rlc(tA, V0, R, L, C)
 
-    def sai_so(x, x_ex):
-        e = x - x_ex
-        return {"max": np.max(np.abs(e)), "rmse": np.sqrt(np.mean(e**2))}
+   
 
     kq = {
         "t": tA, "iA": iA, "iB": iB, "i_ex": i_ex,
-        "vCA": ttA["V_C"], "vCB": ttB["V_C"], "vC_ex": vC_ex,
-        "err_iA": sai_so(iA, i_ex), "err_iB": sai_so(iB, i_ex),
-        "err_vCA": sai_so(ttA["V_C"], vC_ex), "err_vCB": sai_so(ttB["V_C"], vC_ex),
+        "vCA": ttA["U_C"], "vCB": ttB["U_C"], "vC_ex": vC_ex,
         "i_ref": np.max(np.abs(i_ex)), "vC_ref": V0,
     }
     return kq
 
 
-def khao_sat_hoi_tu(V0, R, L, C, list_n=(500, 1000, 3000, 10000, 30000)):
-    """Sai so max cua i(t) theo so diem: kiem tra bac chinh xac cua 2 cach."""
-    ket_qua = []
-    for n in list_n:
-        kq = so_sanh_task2(V0, R, L, C, n_points=n)
-        dt = kq["t"][1] - kq["t"][0]
-        ket_qua.append((n, dt, kq["err_iA"]["max"], kq["err_iB"]["max"]))
-    return ket_qua
-
-
 def ve_so_sanh_task2(kq):
-    """Ve 3 do thi: i(t) 3 duong, V_C(t) 3 duong, sai so tuyet doi cua i(t)."""
     t = kq["t"] * 1000
-    fig, ax = plt.subplots(3, 1, figsize=(9, 11))
+    fig, ax = plt.subplots(2, 1, figsize=(9, 11))
 
-    ax[0].plot(t, kq["i_ex"], "k-", lw=2.5, alpha=0.35, label="Giai tich (chuan)")
-    ax[0].plot(t, kq["iA"], color="tab:red", lw=1.3, label="Cach A: he bac 1 + Euler")
-    ax[0].plot(t, kq["iB"], color="tab:blue", lw=1.3, ls="--", label="Cach B: bac 2 + sai phan trung tam")
+    ax[0].plot(t, kq["i_ex"], "k-", lw=2.5, alpha=0.35, label="Li thuyet")
+    ax[0].plot(t, kq["iA"], color="tab:red", lw=1.3, label="Cach A")
+    ax[0].plot(t, kq["iB"], color="tab:blue", lw=1.3, ls="--", label="Cach B")
     ax[0].set_ylabel("i(t) (A)")
-    ax[0].set_title("Task 2: So sanh hai phuong phap so - dong dien")
+    ax[0].set_title("So sanh hai phuong phap so - dong dien")
     ax[0].legend(fontsize=9)
 
-    ax[1].plot(t, kq["vC_ex"], "k-", lw=2.5, alpha=0.35, label="Giai tich (chuan)")
+    ax[1].plot(t, kq["vC_ex"], "k-", lw=2.5, alpha=0.35, label="Li thuyet")
     ax[1].plot(t, kq["vCA"], color="tab:red", lw=1.3, label="Cach A")
     ax[1].plot(t, kq["vCB"], color="tab:blue", lw=1.3, ls="--", label="Cach B")
-    ax[1].set_ylabel("V_C(t) (V)")
-    ax[1].set_title("Dien ap tren tu")
+    ax[1].set_ylabel("U_C(t) (V)")
+    ax[1].set_title("Hiệu điện thế trên tụ")
     ax[1].legend(fontsize=9)
 
-    ax[2].plot(t, np.abs(kq["iA"] - kq["i_ex"]), color="tab:red", label="|sai so| Cach A")
-    ax[2].plot(t, np.abs(kq["iB"] - kq["i_ex"]), color="tab:blue", label="|sai so| Cach B")
-    ax[2].set_yscale("log")
-    ax[2].set_ylabel("|i - i_chinh_xac| (A)")
-    ax[2].set_xlabel("Thoi gian t (ms)")
-    ax[2].set_title("Sai so tuyet doi cua dong dien (thang log)")
-    ax[2].legend(fontsize=9)
 
     for a in ax:
         a.grid(True, alpha=0.3)
     fig.tight_layout()
 
 
-
-# =====================================================================
-#  TASK 3: MACH BUCK DON GIAN (Nguon - K - L - C // Tai)
-# =====================================================================
 def simulate_buck(Vin=220.0, L=330e-6, C=47e-6, R_tai=5.0,
-                  Ron=0.05, Vd=0.7, fsw=50e3, Ton=0.52e-6,
-                  dt=10e-9, t_end=10e-3):
-    """
-    Mo phong mach buck ho vong bang Euler tien.
-    Tra ve: t, iL, vC, vsw, thong_tin (dict)
-    """
+                 fsw=50e3, Ton=0.455e-6,
+                  dt=5e-9, t_end=10e-3):
     T = 1 / fsw
-    D = Ton / T
     N = int(t_end / dt)
-    # Dem buoc nguyen de xung K khong bi lech do sai so lam tron so thuc
     buoc_T = round(T / dt)
     buoc_on = round(Ton / dt)
 
@@ -311,94 +231,53 @@ def simulate_buck(Vin=220.0, L=330e-6, C=47e-6, R_tai=5.0,
     vC = np.zeros(N)
     vsw = np.zeros(N)
 
-    i, v = 0.0, 0.0      # dieu kien dau: iL = 0, vC = 0
+    i, v = 0.0, 0.0
     for n in range(N):
-        k = n % buoc_T
-        dong = k < buoc_on
-        if dong:                     # K dong
-            u = Vin - Ron * i
-        elif i > 0:                  # K mo, diode dan
-            u = -Vd
-        else:                        # K mo, iL = 0 (DCM)
-            u = v
-        di_dt = (u - v) / L
-        dv_dt = (i - v / R_tai) / C
-        i += dt * di_dt
-        v += dt * dv_dt
-        if (not dong) and i < 0:     # diode khong cho dong am
-            i = 0.0
+        if (n % buoc_T) < buoc_on:           
+            u = Vin 
+        else:                                
+            u = 0
+        i += dt * (u - v) / L
+        v += dt * (i - v / R_tai) / C
         iL[n], vC[n], vsw[n] = i, v, u
 
-    ss = t > t_end - 2e-3            # 2 ms cuoi (da on dinh)
+    ss = t > t_end - 2e-3
+    ngoai = np.where(np.abs(vC - vC[ss].mean()) > 0.02 * vC[ss].mean())[0]
+   
     thong_tin = {
-        "loai_mach": "Buck",
-        "D": D,
+        "loai_mach": "Buck SPDT",
         "Vout_tb": vC[ss].mean(),
-        "gonsong_V": vC[ss].max() - vC[ss].min(),
-        "IL_tb": iL[ss].mean(),
-        "gonsong_I": iL[ss].max() - iL[ss].min(),
         "vot_lo": vC.max(),
+        "t_xac_lap_ms": t[ngoai[-1]] * 1e3 if len(ngoai) else 0.0,
         "t_end": t_end,
     }
     return t, iL, vC, vsw, thong_tin
 
 
-def ve_buck(t, iL, vC, vsw, tt):
-    """Ve Vout(t), iL(t) va phong to 100 us cuoi cho Task 3."""
-    fig, ax = plt.subplots(4, 1, figsize=(10, 11))
+def ve_buck(t, vC):
+    fig, ax = plt.subplots(1, 1, figsize=(10, 11))
     ms = t * 1e3
 
-    ax[0].plot(ms, vC, color="tab:blue")
-    ax[0].axhline(5, color="r", ls="--", lw=0.8, label="5 V")
-    ax[0].set_ylabel("Vout (V)")
-    ax[0].set_title("Task 3: Buck 220V -> 5V (K - L - C // Tai)")
-    ax[0].legend()
+    ax.plot(ms, vC, color="tab:blue")
+    ax.axhline(5, color="r", ls="--", lw=0.8, label="5 V")
+    ax.set_ylabel("Vout (V)")
+    ax.set_title("Buck 220V -> 5V (khoa chuyen mach - L - C // Tai)")
+    ax.legend()
 
-    ax[1].plot(ms, iL, color="tab:red")
-    ax[1].set_ylabel("iL (A)")
-    ax[1].set_xlabel("t (ms)")
-
-    z = t > tt["t_end"] - 100e-6
-    mz = (t[z] - (tt["t_end"] - 100e-6)) * 1e6
-    ax[2].plot(mz, iL[z], color="tab:red")
-    ax[2].plot(mz, vsw[z] / 220.0, color="gray", lw=0.6, alpha=0.6,
-               label="vsw / 220 (xung K)")
-    ax[2].set_ylabel("iL (A)")
-    ax[2].set_title("Phong to 100 us cuoi")
-    ax[2].legend(loc="upper right")
-
-    ax[3].plot(mz, vC[z], color="tab:blue")
-    ax[3].set_ylabel("Vout (V)")
-    ax[3].set_xlabel("t (us)")
-
-    for a in ax:
-        a.grid(alpha=0.3)
     fig.tight_layout()
 
 
 
 
-# =====================================================================
 #  TASK 4: MACH BUCK VOI TAI LA NGUON DONG
-# =====================================================================
+
 def simulate_buck_nguon_dong(vong_kin=False, Vin=220.0, L=330e-6, C=47e-6,
-                             I_tai=1.0, Ron=0.05, Vd=0.7, fsw=50e3,
-                             Ton=0.52e-6, Vref=5.0,
+                             I_tai=1.0, Ron=0.0, fsw=50e3,
+                             Ton=0.455e-6, Vref=5.0,
                              Kpv=0.15, Kiv=90.0, Kpi=0.03,
                              Iref_max=3.0, d_max=0.2,
-                             dt=10e-9, t_end=20e-3):
-    """
-    Buck (K - D1 - L - C) voi tai la nguon dong hang I_tai.
-    Phuong trinh:   L*diL/dt = v_sw - vC
-                    C*dvC/dt = iL - I_tai      (khong con dien tro tai)
-    Nguon dong chi hut dong khi vC > 0 (khong the hut dong khi khong co ap).
+                             dt=5e-9, t_end=20e-3):
 
-    vong_kin = False : ho vong, do rong xung co dinh Ton (giong Task 3).
-    vong_kin = True  : dieu khien luong cap, cap nhat 1 lan moi chu ky dong cat
-        - Vong ap ngoai (PI):  i_ref = Kpv*(Vref - vC) + Iv,  Iv += Kiv*(Vref - vC)*T
-        - Vong dong trong:     d = (vC + Vd)/Vin + Kpi*(i_ref - iL)
-        (iL, vC lay gia tri trung binh cua chu ky truoc)
-    """
     T = 1 / fsw
     buoc_T = round(T / dt)
     buoc_on = round(Ton / dt)
@@ -415,7 +294,7 @@ def simulate_buck_nguon_dong(vong_kin=False, Vin=220.0, L=330e-6, C=47e-6,
     Iv = 0.0
     tong_i = tong_v = 0.0
     if vong_kin:
-        buoc_on = 0                     # chu ky dau tien: K mo
+        buoc_on = 0                    
     for n in range(N):
         k = n % buoc_T
         if vong_kin and k == 0 and n > 0:
@@ -424,23 +303,17 @@ def simulate_buck_nguon_dong(vong_kin=False, Vin=220.0, L=330e-6, C=47e-6,
             e_v = Vref - v_tb
             Iv = min(max(Iv + Kiv * e_v * T, 0.0), Iref_max)
             i_ref = min(max(Kpv * e_v + Iv, 0.0), Iref_max)
-            d = (v_tb + Vd) / Vin + Kpi * (i_ref - i_tb)
+            d = v_tb/ Vin + Kpi * (i_ref - i_tb)
             d = min(max(d, 0.0), d_max)
             buoc_on = int(round(d * buoc_T))
             duty[n // buoc_T] = d
-            i_ref_log[n // buoc_T] = i_ref
-        dong = k < buoc_on
-        if dong:
-            u = Vin - Ron * i
-        elif i > 0:
-            u = -Vd
-        else:
-            u = v
+        if k < buoc_on:              
+            u = Vin 
+        else:                           
+            u = 0.0
         I_hut = I_tai if v > 0 else 0.0
         i += dt * (u - v) / L
         v += dt * (i - I_hut) / C
-        if (not dong) and i < 0:
-            i = 0.0
         iL[n], vC[n] = i, v
         tong_i += i
         tong_v += v
@@ -448,50 +321,30 @@ def simulate_buck_nguon_dong(vong_kin=False, Vin=220.0, L=330e-6, C=47e-6,
         duty[:] = Ton / T
 
     ss = t > t_end - 2e-3
-    z = t > t_end - 100e-6
-    ngoai = np.where(np.abs(vC - Vref) > 0.02 * Vref)[0]
-    t_xl = t[ngoai[-1]] * 1e3 if len(ngoai) else 0.0
+   
     tt = {
         "vong_kin": vong_kin, "t_end": t_end, "Vref": Vref, "I_tai": I_tai,
         "Vout_tb": vC[ss].mean(), "Vout_min": vC[ss].min(), "Vout_max": vC[ss].max(),
-        "IL_tb": iL[ss].mean(), "IL_min": iL[ss].min(), "IL_max": iL[ss].max(),
-        "gonsong_V": vC[z].max() - vC[z].min(), "gonsong_I": iL[z].max() - iL[z].min(),
-        "vot_lo": vC.max(), "t_xac_lap_ms": t_xl,
-        "duty_tb": duty[n_ck // 2:n_ck].mean(),
     }
-    return t, iL, vC, duty, i_ref_log, tt
+    return t, vC, duty, tt
 
 
 def ve_buck_nguon_dong(kq_ho, kq_kin):
-    """Ve so sanh ho vong / kin vong cho Task 4."""
-    t, iL_h, vC_h, _, _, tt_h = kq_ho
-    _, iL_k, vC_k, _, _, tt_k = kq_kin
+   
+    t, vC_h, _,tt_h = kq_ho
+    _, vC_k,_, tt_k = kq_kin
     ms = t * 1e3
-    fig, ax = plt.subplots(3, 1, figsize=(10, 10))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
-    ax[0].plot(ms, vC_h, color="tab:red", lw=1.0, label="4A: ho vong")
-    ax[0].plot(ms, vC_k, color="tab:blue", lw=1.4, label="4B: kin vong")
-    ax[0].axhline(5, color="k", ls="--", lw=0.8)
-    ax[0].set_ylabel("Vout (V)")
-    ax[0].set_title("Task 4: Buck 220V -> 5V, tai la nguon dong 1 A")
-    ax[0].legend(loc="lower right")
+    ax.plot(ms, vC_h, color="tab:red", lw=1.0, label="4A: ho vong")
+    ax.plot(ms, vC_k, color="tab:blue", lw=1.4, label="4B: kin vong")
+    ax.axhline(5, color="k", ls="--", lw=0.8)
+    ax.set_ylabel("Vout (V)")
+    ax.set_title("Buck 220V -> 5V, khoa chuyen mach, tai la nguon dong 1 A")
+    ax.legend(loc="lower right")
 
-    ax[1].plot(ms, iL_h, color="tab:red", lw=0.8, label="4A: ho vong")
-    ax[1].plot(ms, iL_k, color="tab:blue", lw=0.8, label="4B: kin vong")
-    ax[1].axhline(tt_k["I_tai"], color="k", ls="--", lw=0.8)
-    ax[1].set_ylabel("iL (A)")
-    ax[1].set_xlabel("t (ms)")
-    ax[1].legend(loc="upper right")
-
-    z = t > tt_k["t_end"] - 100e-6
-    mz = (t[z] - (tt_k["t_end"] - 100e-6)) * 1e6
-    ax[2].plot(mz, vC_k[z], color="tab:blue")
-    ax[2].set_ylabel("Vout (V)")
-    ax[2].set_xlabel("t (us)")
-    ax[2].set_title("4B: phong to 100 us cuoi (kin vong)")
-    for a in ax:
-        a.grid(alpha=0.3)
-  
+    fig.tight_layout()
+    
 
 
 # ==================== CHAY MO PHONG ====================
@@ -499,55 +352,36 @@ if __name__ == "__main__":
     # ---------- TASK 1: MACH RL (V - R - L) ----------
     t1, i1, tt1 = simulate_circuit(V0=12.0, R=10.0, L=0.5, C=None)
     ve_dothi_dongdien(t1, i1, tt1)
-    ve_dienap(t1, tt1,)
+    ve_dienap(t1, tt1)
 
     # ---------- TASK 2: MACH RLC (V - R - L - C) ----------
     t2, i2, tt2 = simulate_circuit(V0=12.0, R=5.0, L=0.1, C=100e-6)
     ve_dothi_dongdien(t2, i2, tt2)
     ve_dienap(t2, tt2)
-    print(f"[Task 2A] {tt2['che_do']}")
+   
 
     # ---------- TASK 2B: DAO HAM 2 VE + SAI PHAN BAC 2, SO SANH VOI 2A ----------
     kq2 = so_sanh_task2(V0=12.0, R=5.0, L=0.1, C=100e-6)
-    print("[Task 2B] So sanh voi nghiem giai tich (n_points = 3000)")
-    print(f"  i(t)  Cach A: max = {kq2['err_iA']['max']:.3e} A, RMSE = {kq2['err_iA']['rmse']:.3e} A")
-    print(f"  i(t)  Cach B: max = {kq2['err_iB']['max']:.3e} A, RMSE = {kq2['err_iB']['rmse']:.3e} A")
-    print(f"  V_C   Cach A: max = {kq2['err_vCA']['max']:.3e} V, RMSE = {kq2['err_vCA']['rmse']:.3e} V")
-    print(f"  V_C   Cach B: max = {kq2['err_vCB']['max']:.3e} V, RMSE = {kq2['err_vCB']['rmse']:.3e} V")
-    print(f"  V_C,max: A = {kq2['vCA'].max():.3f} V, B = {kq2['vCB'].max():.3f} V, chinh xac = {kq2['vC_ex'].max():.3f} V")
-    print("  Khao sat hoi tu (sai so max cua i):")
-    print("    n_points |    dt (us) |  Cach A (A) |  Cach B (A)")
-    for n, dt_, eA, eB in khao_sat_hoi_tu(12.0, 5.0, 0.1, 100e-6):
-        print(f"    {n:8d} | {dt_*1e6:10.2f} | {eA:.3e} | {eB:.3e}")
     ve_so_sanh_task2(kq2)
+    # ---------- TASK 2B: DAO HAM 2 VE + SAI PHAN BAC 2 ----------
+    t2B, i2B, tt2B = simulate_rlc_bac2(
+    V0=12.0,
+    R=5.0,
+    L=0.1,
+    C=100e-6
+)
 
-    # ---------- TASK 3: MACH BUCK 220V -> 5V ----------
+    ve_task2B(t2B, i2B, tt2B)
+
+    # ---------- TASK 3: MACH BUCK 220V -> 5V, KHOA CHUYEN MACH ----------
     t3, iL3, vC3, vsw3, tt3 = simulate_buck()
-    print("[Task 3] Buck 220V -> 5V")
-    print(f"  Duty D           = {tt3['D']*100:.2f} %")
-    print(f"  Vout trung binh  = {tt3['Vout_tb']:.3f} V")
-    print(f"  Gon song Vout    = {tt3['gonsong_V']*1e3:.1f} mV (pp)")
-    print(f"  IL trung binh    = {tt3['IL_tb']:.3f} A")
-    print(f"  Gon song IL      = {tt3['gonsong_I']:.3f} A (pp)")
-    print(f"  Vout vot lo max  = {tt3['vot_lo']:.3f} V")
-    ve_buck(t3, iL3, vC3, vsw3, tt3)
+    _, _, _, _, tt3r = simulate_buck( Ton=0.455e-6, dt=10e-9)
+    ve_buck(t3,vC3)
 
     # ---------- TASK 4: BUCK 220V -> 5V, TAI LA NGUON DONG 1 A ----------
     kq4a = simulate_buck_nguon_dong(vong_kin=False)
     kq4b = simulate_buck_nguon_dong(vong_kin=True)
-    a, b = kq4a[5], kq4b[5]
-    print("[Task 4A] Ho vong, tai nguon dong 1 A (2 ms cuoi)")
-    print(f"  Vout trung binh = {a['Vout_tb']:.3f} V, dao dong {a['Vout_min']:.2f} .. {a['Vout_max']:.2f} V")
-    print(f"  IL trung binh   = {a['IL_tb']:.3f} A, dao dong {a['IL_min']:.3f} .. {a['IL_max']:.3f} A")
-    print(f"  Vout vot lo max = {a['vot_lo']:.3f} V")
-    print("[Task 4B] Kin vong (PI ap ngoai + PI dong trong)")
-    print(f"  Vout trung binh = {b['Vout_tb']:.4f} V, dao dong {b['Vout_min']:.3f} .. {b['Vout_max']:.3f} V")
-    print(f"  Gon song Vout   = {b['gonsong_V']*1e3:.1f} mV (pp, 100 us cuoi)")
-    print(f"  IL trung binh   = {b['IL_tb']:.3f} A, gon song {b['gonsong_I']:.3f} A (pp)")
-    print(f"  Vout vot lo max = {b['vot_lo']:.3f} V")
-    print(f"  Thoi gian xac lap (2 %) = {b['t_xac_lap_ms']:.2f} ms")
-    print(f"  Duty trung binh = {b['duty_tb']*100:.2f} %")
     ve_buck_nguon_dong(kq4a, kq4b)
 
-   
+  
     plt.show()
